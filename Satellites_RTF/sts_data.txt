@@ -1,0 +1,2 @@
+NOAA 2 (ITOS-D)
+Active 123.456 CW 100 13
