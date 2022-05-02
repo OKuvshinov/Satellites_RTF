@@ -35,7 +35,7 @@ CurrentFRQ = 0
 CurrentPt = 0
 CurrentGt = 0
 
-CurrentSens = -90
+CurrentSens = -120
 CurrentGr = 13
 
 lat_array = []
@@ -50,6 +50,8 @@ dist_array = []
 NeedyInfo = []
 
 recieve_pwr_array = []
+
+utc_time_array = []
  
 # Для примера реализуем всё в виде одной простой функции
 # На вход она потребует идентификатор спутника, диапазон дат, имя пользователя и пароль. Опциональный флаг для последних данных tle
@@ -79,9 +81,13 @@ def get_spacetrack_tle (sat_id, start_date, end_date, username, password, latest
 wndw = tk.Tk()
 wndw.title('Расчет расстояния до спутника')
 
-wndw_w = int(1366/2)
-wndw_h = int(768/2)
-wndw.geometry(f"{wndw_w}x{wndw_h}+{int(wndw_w/2)}+{int(wndw_h/2)}")
+# узнаем размеры экрана, чтобы на любом компьютере отображалось нормально
+wndw_w = wndw.winfo_screenwidth()
+wndw_h = wndw.winfo_screenheight()
+
+wndw_size_koef = 1.4
+
+wndw.geometry(f"{int(wndw_w/wndw_size_koef)}x{int(wndw_h/wndw_size_koef)}+{int(wndw_w/2)-int(wndw_w/(wndw_size_koef*2))}+{int(wndw_h/2)-int(wndw_h/(wndw_size_koef*2))}")
 
 # здесь будем писать день наблюдения
 tk.Label(wndw, text="Дата наблюдения (дд.мм.гггг): ").grid(row=0, column=0)
@@ -108,7 +114,7 @@ time_stop.grid(row=2, column=1)
 tk.Label(text="Шаг времени (с): ").grid(row=3, column=0)
 
 step_sec = tk.Entry(wndw)
-step_sec.insert(0, 30)
+step_sec.insert(0, 2)
 step_sec.grid(row=3, column=1)
 
 # наша позиция
@@ -148,7 +154,6 @@ Gr_line.insert(0, CurrentGr)
 Gr_line.grid(row=8, column=1)
 
 
-
 SatList = ttk.Combobox(wndw)
 
 # имя выбранного спутника
@@ -186,6 +191,12 @@ tk.Label(text="КУ антенны (дБ): ").grid(row=15, column=0)
 
 Gt_line = tk.Entry(wndw)
 Gt_line.grid(row=15, column=1)
+
+# позывной
+tk.Label(text="Позывной: ").grid(row=16, column=0)
+
+CS_line = tk.Entry(wndw)
+CS_line.grid(row=16, column=1)
 
 # На вход будем требовать идентификатор спутника, день (в формате date (y,m,d))
 # шаг в минутах для определения положения спутника, путь для результирующего файла
@@ -228,6 +239,8 @@ def create_orbital_track_for_day():
 
         # И переменную с временем текущего шага в формате datetime
         utc_time = datetime(track_date.year, track_date.month, track_date.day, utc_hour, utc_minutes, utc_seconds)
+
+        utc_time_array.append(datetime.strftime(utc_time, "%H:%M:%S"))
  
         # Считаем положение спутника
 
@@ -250,11 +263,11 @@ def create_orbital_track_for_day():
     
 def count_recieve_pwr():
 
-    CurrentFRQ = 433.456
+    CurrentFRQ = float(frq_line.get())
 
-    CurrentPt = 100
+    CurrentPt = float(Pt_line.get())
 
-    CurrentGt = 13
+    CurrentGt = float(Gt_line.get())
 
     for i in range(len(dist_array)):
         if dist_array[i] > 0:
@@ -292,8 +305,32 @@ def count_distance():
 
     count_recieve_pwr()
 
-    plt.plot(range(len(recieve_pwr_array)), recieve_pwr_array)
+
+    plt.figure()   
+    plt.plot(utc_time_array, recieve_pwr_array)
     plt.hlines(float(Sens_line.get()), 0, len(recieve_pwr_array), color='red')
+    plt.grid()
+    plt.title('Мощность принимаемого сигнала')
+    plt.xlabel('Время')
+    plt.ylabel('Мощность (дБм)')
+    plt.subplots_adjust(bottom = 0.2)
+    plt.tick_params(axis = 'x', labelrotation = 45)
+    plt.xticks(range(0, len(utc_time_array), int(len(utc_time_array)/10)))
+
+
+    plt.figure()
+    plt.plot(utc_time_array, elev_array)
+    plt.hlines(30, 0, len(elev_array), color='red')
+    plt.hlines(45, 0, len(elev_array), color='yellow')
+    plt.hlines(60, 0, len(elev_array), color='green')
+    plt.grid()
+    plt.title('Угол места')
+    plt.xlabel('Время')
+    plt.ylabel('Угол места (град)')
+    plt.subplots_adjust(bottom = 0.2)
+    plt.tick_params(axis = 'x', labelrotation = 45)
+    plt.xticks(range(0, len(utc_time_array), int(len(utc_time_array)/10)))
+
     plt.show()
 
 def test1():
@@ -321,6 +358,7 @@ def tle_db():
 
     SatList.grid(row=9, column=0)
 
+
 def fill_entries(event):
     chosen_name_line.insert(0, SatList.get())
 
@@ -346,8 +384,11 @@ def fill_entries(event):
 
     Gt_line.insert(0, NeedyInfo[4])
 
+    CS_line.insert(0, NeedyInfo[5])
+
+
 def updateTLE():
-    destination = 'sts.txt'
+    destination = 'stsdb.txt'
     url = 'http://r4uab.ru/satonline.txt'
     urllib.request.urlretrieve(url, destination)
 
